@@ -41,7 +41,7 @@ class data:
             dmrp = h[2]['DMRP'][:]
             dmrt = h[2]['DMRT'][:]
             dmz = h[2]['DMZ'][:]
-        except IOError:
+        except (IOError, ValueError):
             dmrp = rp.copy()
             dmrt = rt.copy()
             dmz = z.copy()
@@ -117,7 +117,10 @@ class data:
         self.mu[w] = self.rp[w]/self.r[w]
 
 
-        self.pk = pk.pk(getattr(pk, dic_init['model']['model-pk']))
+        if 'hcd_model' in dic_init:
+            self.pk = pk.pk(getattr(pk, dic_init['model']['model-pk']),dic_init['hcd_model']['name_hcd_model'])
+        else:
+            self.pk = pk.pk(getattr(pk, dic_init['model']['model-pk']))
         self.pk *= partial(getattr(pk,'G2'), dataset_name=self.name)
         if 'pk-gauss-smoothing' in dic_init['model']:
             self.pk *= partial(getattr(pk, dic_init['model']['pk-gauss-smoothing']))
@@ -365,10 +368,10 @@ class data:
 
         return xi
 
-    def chi2(self, k, pk_lin, pksb_lin, pars):
+    def chi2(self, k, pk_lin, pksb_lin, full_shape, pars):
         xi_peak = self.xi_model(k, pk_lin-pksb_lin, pars)
 
-        pars['SB'] = True
+        pars['SB'] = True & (not full_shape)
         sigmaNL_par = pars['sigmaNL_par']
         sigmaNL_per = pars['sigmaNL_per']
         pars['sigmaNL_par'] = 0.

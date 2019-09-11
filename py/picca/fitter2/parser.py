@@ -24,9 +24,10 @@ def parse_chi2(filename):
     dic_init['fiducial'] = {}
 
     p = cp.get('fiducial','filename')
-    print('INFO: reading input Pk {}'.format(p))
-    p = resource_filename('picca', 'fitter2')+'/models/{}'.format(p)
     p = os.path.expandvars(p)
+    if not os.path.isfile(p):
+        p = resource_filename('picca', 'fitter2')+'/models/{}'.format(p)
+    print('INFO: reading input Pk {}'.format(p))
 
     h = fitsio.FITS(p)
     zref = h[1].read_header()['ZREF']
@@ -37,6 +38,12 @@ def parse_chi2(filename):
     dic_init['fiducial']['pk'] = h[1]['PK'][:]
     dic_init['fiducial']['pksb'] = h[1]['PKSB'][:]
     h.close()
+    try: ## For Python2.7 compatibility
+        dic_init['fiducial']['full-shape'] = int(cp['fiducial']['full-shape'])==1
+    except (KeyError, AttributeError):
+        dic_init['fiducial']['full-shape'] = False
+    if dic_init['fiducial']['full-shape']:
+        print('WARNING!!!: Using full-shape fit to the correlation function. Sailor you are reaching unexplored territories, precede at your own risk.')
 
     zeff = float(cp.get('data sets','zeff'))
     dic_init['data sets'] = {}
@@ -114,6 +121,11 @@ def parse_data(filename,zeff,fiducial):
     dic_init['model']['pk'] = fiducial['pk']
     for item, value in cp.items('model'):
         dic_init['model'][item] = value
+
+    if 'hcd_model' in cp.sections():
+        dic_init['hcd_model'] = {}
+        for item, value in cp.items('hcd_model'):
+            dic_init['hcd_model'][item] = value
 
     dic_init['parameters'] = {}
     dic_init['parameters']['values'] = {}

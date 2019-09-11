@@ -15,19 +15,22 @@ if __name__ == '__main__':
         description='Export auto and cross-correlation for the fitter.')
 
     parser.add_argument('--data', type=str, default=None, required=True,
-        help='Correlation produced via do_cf.py, do_xcf.py, ...')
+        help='Correlation produced via picca_cf.py, picca_xcf.py, ...')
 
     parser.add_argument('--out', type=str, default=None, required=True,
         help='Output file name')
 
     parser.add_argument('--dmat', type=str, default=None, required=False,
-        help='Distortion matrix produced via do_dmat.py, do_xdmat.py... (if not provided will be identity)')
+        help='Distortion matrix produced via picca_dmat.py, picca_xdmat.py... (if not provided will be identity)')
 
     parser.add_argument('--cov', type=str, default=None, required=False,
         help='Covariance matrix (if not provided will be calculated by subsampling)')
 
     parser.add_argument('--cor', type=str, default=None, required=False,
         help='Correlation matrix (if not provided will be calculated by subsampling)')
+
+    parser.add_argument('--remove-shuffled-correlation', type=str, default=None, required=False,
+        help='Remove a correlation from shuffling the distribution of los')
 
     parser.add_argument('--do-not-smooth-cov', action='store_true', default=False,
         help='Do not smooth the covariance matrix')
@@ -53,6 +56,17 @@ if __name__ == '__main__':
     rp_max = head['RPMAX']
     h.close()
 
+    if not args.remove_shuffled_correlation is None:
+        th = fitsio.FITS(args.remove_shuffled_correlation)
+        da_s = th['COR']['DA'][:]
+        we_s = th['COR']['WE'][:]
+        da_s = (da_s*we_s).sum(axis=1)
+        we_s = we_s.sum(axis=1)
+        w = we_s>0.
+        da_s[w] /= we_s[w]
+        th.close()
+        da -= da_s[:,None]
+
     if args.cov is not None:
         print('INFO: The covariance-matrix will be read from file: {}'.format(args.cov))
         hh = fitsio.FITS(args.cov)
@@ -61,10 +75,12 @@ if __name__ == '__main__':
     elif args.cor is not None:
         print('INFO: The correlation-matrix will be read from file: {}'.format(args.cor))
         hh = fitsio.FITS(args.cor)
-        cor = hh[1]['COR'][:]
+        cor = hh[1]['CO'][:]
         hh.close()
         if (cor.min()<-1.) | (cor.min()>1.) | (cor.max()<-1.) | (cor.max()>1.) | sp.any(sp.diag(cor)!=1.):
             print('WARNING: The correlation-matrix has some incorrect values')
+        tvar = sp.diagonal(cor)
+        cor = cor/sp.sqrt(tvar*tvar[:,None])
         co = cov(da,we)
         var = sp.diagonal(co)
         co = cor * sp.sqrt(var*var[:,None])

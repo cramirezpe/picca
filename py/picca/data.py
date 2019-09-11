@@ -115,6 +115,9 @@ class forest(qso):
             corr = unred(10**ll,self.ebv_map[thid])
             fl /= corr
             iv *= corr**2
+            if not diff is None:
+                diff /= corr
+        
         # cut to specified range
         if forest.linear_binning:
             ll=10**ll
@@ -210,6 +213,7 @@ class forest(qso):
             correction = self.correc_ivar(ll)
             iv /= correction
 
+        self.Fbar = None
         self.T_dla = None
         self.ll = ll
         self.fl = fl
@@ -313,25 +317,16 @@ class forest(qso):
         if not hasattr(self,'ll'):
             return
 
-        w = sp.ones(self.ll.size).astype(bool)
+        w = sp.ones(self.ll.size,dtype=bool)
         for l in mask_obs:
-            w = w & ( (self.ll<l[0]) | (self.ll>l[1]) )
+            w &= (self.ll<l[0]) | (self.ll>l[1])
         for l in mask_RF:
-            w = w & ( (self.ll-sp.log10(1.+self.zqso)<l[0]) | (self.ll-sp.log10(1.+self.zqso)>l[1]) )
+            w &= (self.ll-sp.log10(1.+self.zqso)<l[0]) | (self.ll-sp.log10(1.+self.zqso)>l[1])
 
-        self.ll = self.ll[w]
-        self.fl = self.fl[w]
-        self.iv = self.iv[w]
-        if self.mmef is not None:
-            self.mmef = self.mmef[w]
-        if self.diff is not None:
-            self.diff = self.diff[w]
-        if self.reso is not None:
-            self.reso = self.reso[w]
-        if self.reso_matrix is not None:
-            self.reso_matrix = self.reso_matrix[:,w]
-        if self.reso_pix is not None:
-            self.reso_pix = self.reso_pix[w]
+        ps = ['iv','ll','fl','T_dla','Fbar','mmef','diff','reso']
+        for p in ps:
+            if hasattr(self,p) and (getattr(self,p) is not None):
+                setattr(self,p,getattr(self,p)[w])
 
         if self.reso is not None :
             if self.reso_matrix is not None:
@@ -341,7 +336,22 @@ class forest(qso):
                 self.mean_reso = sp.mean(self.reso)
             if self.reso_matrix is not None:
                 nremove=self.reso_matrix.shape[0]//2
-                self.mean_reso_matrix = sp.mean(self.reso_matrix,axis=1)#[:,nremove:-nremove],axis=1)   #this might be extended by properly filtering out pixels where boundary effects play a role (instead of just removing 4 pixels on each side). This will also return an empty array for short spectra (and the FFT of this will be nan)
+                self.mean_reso_matrix = sp.mean(self.reso_matrix, axis=1)  #[:,nremove:-nremove],axis=1)   #this might be extended by properly filtering out pixels where boundary effects play a role (instead of just removing 4 pixels on each side). This will also return an empty array for short spectra (and the FFT of this will be nan)
+                
+    def add_optical_depth(self,tau,gamma,waveRF):
+        """Add mean optical depth
+        """
+        if not hasattr(self,'ll'):
+            return
+
+        if self.Fbar is None:
+            self.Fbar = sp.ones(self.ll.size)
+
+        w = 10.**self.ll/(1.+self.zqso)<=waveRF
+        z = 10.**self.ll/waveRF-1.
+        self.Fbar[w] *= sp.exp(-tau*(1.+z[w])**gamma)
+
+        return
 
     def add_dla(self,zabs,nhi,mask=None):
         if not hasattr(self,'ll'):
@@ -351,7 +361,7 @@ class forest(qso):
 
         self.T_dla *= dla(self,zabs,nhi).t
 
-        w = (self.T_dla>forest.dla_mask)
+        w = self.T_dla>forest.dla_mask
         if not mask is None:
             if not self.linear_binning:
                 for l in mask:
@@ -360,18 +370,10 @@ class forest(qso):
                 for l in mask:
                     w = w & ( (self.ll/(1.+zabs)<l[0]) | (self.ll/(1.+zabs)>l[1]) )
 
-        self.iv = self.iv[w]
-        self.ll = self.ll[w]
-        self.fl = self.fl[w]
-        if self.mmef is not None:
-            self.mmef = self.mmef[w]
-        self.T_dla = self.T_dla[w]
-        if self.diff is not None :
-            self.diff = self.diff[w]
-        if self.reso is not None:
-            self.reso = self.reso[w]
-        if self.reso_pix is not None:
-            self.reso_pix = self.reso_pix[w]
+        ps = ['iv','ll','fl','T_dla','Fbar','mmef','diff','reso']
+        for p in ps:
+            if hasattr(self,p) and (getattr(self,p) is not None):
+                setattr(self,p,getattr(self,p)[w])
 
         if self.reso_matrix is not None:
             self.reso_matrix = self.reso_matrix[:,w]
@@ -383,7 +385,8 @@ class forest(qso):
                 self.mean_reso = sp.mean(self.reso)
             if self.reso_matrix is not None:
                 nremove=self.reso_matrix.shape[0]//2
-                self.mean_reso_matrix = sp.mean(self.reso_matrix[:,nremove:-nremove],axis=1)   #this might be extended by properly filtering out pixels where boundary effects play a role (instead of just removing 4 pixels on each side). This will also return an empty array for short spectra (and the FFT of this will be nan)
+                self.mean_reso_matrix = sp.mean(self.reso_matrix[:, nremove: - nremove], axis=1)  #this might be extended by properly filtering out pixels where boundary effects play a role (instead of just removing 4 pixels on each side). This will also return an empty array for short spectra (and the FFT of this will be nan)
+        return
 
     def add_absorber(self,lambda_absorber):
         if not hasattr(self,'ll'):
@@ -395,17 +398,10 @@ class forest(qso):
         else:
             w &= sp.fabs(1.e4*(sp.log10(self.ll)-sp.log10(lambda_absorber)))>forest.absorber_mask
 
-        self.iv = self.iv[w]
-        self.ll = self.ll[w]
-        self.fl = self.fl[w]
-        if self.diff is not None :
-            self.diff = self.diff[w]
-        if self.reso is not None:
-            self.reso = self.reso[w]
-        if self.reso_matrix is not None:
-             self.reso_matrix = self.reso_matrix[:,w]
-        if self.reso_pix is not None:
-             self.reso_pix = self.reso_pix[w]
+        ps = ['iv','ll','fl','T_dla','Fbar','mmef','diff','reso']
+        for p in ps:
+            if hasattr(self,p) and (getattr(self,p) is not None):
+                setattr(self,p,getattr(self,p)[w])
 
         if self.reso is not None :
             if self.reso_matrix is not None:
@@ -416,8 +412,8 @@ class forest(qso):
             if self.reso_matrix is not None:
                 nremove=self.reso_matrix.shape[0]//2
                 self.mean_reso_matrix = sp.mean(self.reso_matrix,axis=1)#[:,nremove:-nremove],axis=1)   #this might be extended by properly filtering out pixels where boundary effects play a role (instead of just removing 4 pixels on each side). This will also return an empty array for short spectra (and the FFT of this will be nan)
-
-
+        return
+        
     def cont_fit(self):
         if not self.linear_binning:
             lmax = forest.lmax_rest+sp.log10(1+self.zqso)
@@ -434,6 +430,8 @@ class forest(qso):
             except ValueError:
                 raise Exception
 
+        if not self.Fbar is None:
+            mc *= self.Fbar
         if not self.T_dla is None:
             mc*=self.T_dla
 
@@ -654,9 +652,9 @@ class delta(qso):
         de = h[0].read()
         iv = h[1].read()
         ll = h[2].read()
-        ra = h[3]["RA"][:]*sp.pi/180.
-        dec = h[3]["DEC"][:]*sp.pi/180.
-        z = h[3]["Z"][:]
+        ra = h[3]["RA"][:].astype(sp.float64)*sp.pi/180.
+        dec = h[3]["DEC"][:].astype(sp.float64)*sp.pi/180.
+        z = h[3]["Z"][:].astype(sp.float64)
         plate = h[3]["PLATE"][:]
         mjd = h[3]["MJD"][:]
         fid = h[3]["FIBER"]

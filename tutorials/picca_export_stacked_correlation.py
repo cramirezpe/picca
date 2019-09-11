@@ -12,19 +12,22 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument('--data', type = str, default = None, required=True,nargs="*",
-                        help = 'all data files to stack')
+        help = 'all data files to stack')
 
     parser.add_argument('--out', type = str, default = None, required=True,
-                        help = 'output file')
+        help = 'output file')
 
     parser.add_argument('--dmat', type = str, default = None, required=False,nargs="*",
-                        help = 'distorsion matrix file')
+        help = 'distorsion matrix file')
+
+    parser.add_argument('--remove-shuffled-correlation', type = str, default = None, required=False, nargs="*",
+        help='Remove a correlation from shuffling the distribution of los')
 
     parser.add_argument('--cov', type = str, default = None, required=False,
-                        help = 'covariance matrix file (if not provided it will be calculated by subsampling)')
+        help = 'covariance matrix file (if not provided it will be calculated by subsampling)')
 
     parser.add_argument('--do-not-smooth-cov', action='store_true', default = False,
-                        help='do not smooth the covariance matrix')
+        help='do not smooth the covariance matrix')
 
     args = parser.parse_args()
 
@@ -55,6 +58,20 @@ if __name__ == '__main__':
             'NSIDE':nside, 'HLPXSCHM':scheme,
             'NP':np, 'NT':nt, 'RTMAX':rt_max, 'RPMIN':rp_min, 'RPMAX':rp_max}
         h.close()
+
+    ###
+    if not args.remove_shuffled_correlation is None:
+        assert len(args.remove_shuffled_correlation)==len(args.data)
+        for i,p in enumerate(args.remove_shuffled_correlation):
+            th = fitsio.FITS(p)
+            da_s = th['COR']['DA'][:]
+            we_s = th['COR']['WE'][:]
+            da_s = (da_s*we_s).sum(axis=1)
+            we_s = we_s.sum(axis=1)
+            w = we_s>0.
+            da_s[w] /= we_s[w]
+            th.close()
+            data[i]['DA'] -= da_s[:,None]
 
     ### same header
     for i in range(nbData):
@@ -135,6 +152,7 @@ if __name__ == '__main__':
 
     ### Distortion matrix
     if args.dmat is not None:
+        assert len(args.dmat)==len(args.data)
         for i,p in enumerate(args.dmat):
             h = fitsio.FITS(p)
             h2 = fitsio.FITS(args.data[i])
