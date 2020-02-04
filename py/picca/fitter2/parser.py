@@ -84,6 +84,12 @@ def parse_chi2(filename):
     if cp.has_section('chi2 scan'):
         dic_init['chi2 scan'] = parse_chi2scan(cp.items('chi2 scan'))
 
+    if cp.has_section('Polychord'):
+        dic_init['Polychord'] = cp['Polychord']
+
+    if cp.has_section('control'):
+        dic_init['control'] = cp['control']
+
     return dic_init
 
 def parse_data(filename,zeff,fiducial):
