@@ -44,7 +44,7 @@ class sample:
 
         self.get_local_lik = self.control.getboolean('compute_local_lik', False)
         run_chi2 = self.control.getboolean('chi2', False)
-        if self.control.getboolean('chi2_parllel', False):
+        if self.control.getboolean('chi2_parallel', False):
             run_chi2 = True
         marginal_scan = self.control.getboolean('marginal_scan', False)
         if run_chi2 or marginal_scan:
