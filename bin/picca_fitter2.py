@@ -17,6 +17,7 @@ if __name__ == '__main__':
     dic_init = parser.parse_chi2(args.config)
     chi = chi2.chi2(dic_init)
     chi.minimize()
+    chi.forecast()
     chi.minos()
     chi.chi2scan()
     chi.fastMC()

@@ -91,6 +91,18 @@ def parse_chi2(filename):
                 value = value.split()
             dic_init['minos'][item] = value
 
+    if cp.has_section('forecast'):
+        dic_init['forecast'] = {}
+        for item, value in cp.items('forecast'):
+            value = value.split()
+            dic_init['forecast'][item] = sp.array(value).astype(float)
+            if item == 'covscaling':
+                assert len(dic_init['forecast'][item])==len(dic_init['data sets']['data'])
+            else:
+                num_items = len(dic_init['forecast'][item])
+                if not (num_items == 1 or num_items == 3):
+                    raise AssertionError('parameter values in [forecast] take one (the value) or three (start, finish, steps) elements')
+
     if cp.has_section('chi2 scan'):
         dic_init['chi2 scan'] = parse_chi2scan(cp.items('chi2 scan'))
 

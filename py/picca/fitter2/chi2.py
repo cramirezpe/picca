@@ -5,6 +5,7 @@ import iminuit
 import time
 import h5py
 import sys
+import copy
 from scipy.linalg import cholesky
 
 from . import priors
@@ -51,6 +52,15 @@ class chi2:
                     sys.exit('ERROR: Why forecast more than once?')
             else:
                 self.forecast_mc = False
+
+        if 'forecast' in dic_init:
+            self.forecast_pars = {}
+            for item, value in dic_init['forecast'].items():    
+                if item == 'covscaling':
+                    self.covscaling  = dic_init['forecast']['covscaling']
+                else:
+                    self.covscaling = sp.ones(len(self.data))
+                    self.forecast_pars[item] = value
 
         if 'minos' in dic_init:
             self.minos_para = dic_init['minos']
@@ -287,6 +297,80 @@ class chi2:
                         print('WARNING: Can not run minos on a fixed parameter: {}'.format(var))
                     else:
                         print('WARNING: Can not run minos on a unknown parameter: {}'.format(var))
+
+    def forecast(self):
+        if not hasattr(self,"forecast_pars"): return
+
+        # Rescale the covariance matrix
+        for d, s in zip(self.data, self.covscaling):
+            d.co = s*d.co
+            d.ico = d.ico/s
+
+        # Save the initial set of bestfit parameters
+        init_pars = dict(self.best_fit.values).copy()
+
+        def get_pars(pars, all_pars):
+            ''' Get a copy of the set of full parameters modified with our local pars '''
+            new_pars = copy.deepcopy(all_pars)
+            for p in pars:
+                new_pars[p] = pars[p]
+            return new_pars
+
+        def set_model(pars):
+            ''' Computes a fiducial model for each dataset given the input pars and saves it in self.data '''
+            pars['SB'] = False
+            for d in self.data:
+                d.fiducial_model = pars['bao_amp']*d.xi_model(self.k, self.pk_lin-self.pksb_lin, pars)
+
+                pars['SB'] = True
+                snl_per = pars['sigmaNL_per']
+                snl_par = pars['sigmaNL_par']
+                pars['sigmaNL_per'] = 0
+                pars['sigmaNL_par'] = 0
+                d.fiducial_model += d.xi_model(self.k, self.pksb_lin, pars)
+                pars['SB'] = False
+                pars['sigmaNL_per'] = snl_per
+                pars['sigmaNL_par'] = snl_par
+            del pars['SB']
+
+        def run_forecast(pars):
+            ''' Runs the forecast for a set of pars'''
+            # Compute the model
+            set_model(pars)
+
+            # Replace the data with the fiducial model
+            for d in self.data:
+                d.da = d.fiducial_model
+                d.da_cut = d.da[d.mask]
+
+            # Run the minimizer
+            best_fit = self.minimize()
+            return best_fit
+
+        save_output = copy.deepcopy(self.outfile)
+        if len(self.forecast_pars) == 0:
+            pars = get_pars({}, init_pars)
+            best_fit = run_forecast(pars)
+            self.outfile = save_output[:-3] + '_forecast' + '.h5'
+            self.export()
+        else:
+            for par, setting in self.forecast_pars.items():
+                if len(setting) == 1:
+                    pars = get_pars({par:setting[0]}, init_pars)
+                    best_fit = run_forecast(pars)
+                    self.outfile = save_output[:-3] + '_forecast_' + par + '_' + str(setting[0]) + '.h5'
+                    self.export()
+                elif len(setting) == 3:
+                    par_vals = sp.linspace(setting[0], setting[1], int(setting[2]))
+                    for val in par_vals:
+                        pars = get_pars({par:val}, init_pars)
+                        best_fit = run_forecast(pars)
+                        self.outfile = save_output[:-3] + '_forecast_' + par + '_' + str(val) + '.h5'
+                        self.export()
+                else:
+                    raise ValueError('Parameter settings for forecast are wrong (number of items is not 1 or 3)')
+        
+        self.outfile = save_output
 
     def export(self):
         f = h5py.File(self.outfile,"w")
