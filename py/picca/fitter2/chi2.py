@@ -55,11 +55,11 @@ class chi2:
 
         if 'forecast' in dic_init:
             self.forecast_pars = {}
+            self.covscaling = None
             for item, value in dic_init['forecast'].items():    
                 if item == 'covscaling':
                     self.covscaling  = dic_init['forecast']['covscaling']
                 else:
-                    self.covscaling = sp.ones(len(self.data))
                     self.forecast_pars[item] = value
 
         if 'minos' in dic_init:
@@ -302,9 +302,12 @@ class chi2:
         if not hasattr(self,"forecast_pars"): return
 
         # Rescale the covariance matrix
-        for d, s in zip(self.data, self.covscaling):
-            d.co = s*d.co
-            d.ico = d.ico/s
+        if self.covscaling is not None:
+            if len(self.covscaling) == 1:
+                self.covscaling = sp.full(len(self.data), self.covscaling)    
+            for d, s in zip(self.data, self.covscaling):
+                d.co = s*d.co
+                d.ico = d.ico/s
 
         # Save the initial set of bestfit parameters
         init_pars = dict(self.best_fit.values).copy()

@@ -97,7 +97,9 @@ def parse_chi2(filename):
             value = value.split()
             dic_init['forecast'][item] = sp.array(value).astype(float)
             if item == 'covscaling':
-                assert len(dic_init['forecast'][item])==len(dic_init['data sets']['data'])
+                num_items = len(dic_init['forecast'][item])
+                if not (num_items == 1 or num_items == len(dic_init['data sets']['data'])):
+                    raise AssertionError('covscaling in forecast is wrong - give only one scaling or one for each dataset)')
             else:
                 num_items = len(dic_init['forecast'][item])
                 if not (num_items == 1 or num_items == 3):
