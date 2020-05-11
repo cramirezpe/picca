@@ -399,7 +399,7 @@ class data:
         Uses the chi2 function and computes the normalization
         '''
 
-        chi2 = self.chi2(k, pk_lin, pksb_lin, full_shape, pars)
+        chi2 = self.chi2(k, pk_lin, pksb_lin, full_shape, continuum, pars)
         log_lik = - 0.5 * len(self.da_cut) * np.log(2 * np.pi) - 0.5 * self.log_co_det
         log_lik -= 0.5 * chi2
 

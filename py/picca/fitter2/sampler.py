@@ -26,6 +26,7 @@ class sampler:
 
         # Flag for running fullshape. Needed by data.py, never tested
         self.full_shape = dic_init['fiducial']['full-shape']
+        self.continuum = dic_init['fiducial']['continuum']
 
     def log_lik(self, pars):
         ''' Compute log likelihood for all datasets and add them '''
@@ -37,7 +38,7 @@ class sampler:
         log_lik = 0
         for d in self.data:
             log_lik += d.log_lik(self.k, self.pk_lin, self.pksb_lin,
-                                 self.full_shape, pars)
+                                 self.full_shape, self.continuum, pars)
 
         for prior in priors.prior_dic.values():
             log_lik += prior(pars)
