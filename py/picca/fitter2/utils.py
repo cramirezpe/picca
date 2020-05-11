@@ -127,6 +127,12 @@ def ap_at(kwargs):
     if kwargs['SB']:
         ap = 1.
         at = 1.
+    elif 'continuum' in kwargs:
+        if kwargs['continuum']:
+            aiso = kwargs['aiso_cont']
+            eps = kwargs['epsilon_cont'] + 1
+            ap = aiso*eps*eps
+            at = aiso/eps
     else:
         ap = kwargs['ap']
         at = kwargs['at']

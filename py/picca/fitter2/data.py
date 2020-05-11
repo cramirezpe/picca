@@ -375,9 +375,10 @@ class data:
 
         return xi
 
-    def chi2(self, k, pk_lin, pksb_lin, full_shape, pars):
+    def chi2(self, k, pk_lin, pksb_lin, full_shape, continuum, pars):
         xi_peak = self.xi_model(k, pk_lin-pksb_lin, pars)
 
+        pars['continuum'] = continuum
         pars['SB'] = True & (not full_shape)
         sigmaNL_par = pars['sigmaNL_par']
         sigmaNL_per = pars['sigmaNL_per']
@@ -393,7 +394,7 @@ class data:
 
         return dxi.T.dot(self.ico.dot(dxi))
 
-    def log_lik(self, k, pk_lin, pksb_lin, full_shape, pars):
+    def log_lik(self, k, pk_lin, pksb_lin, full_shape, continuum, pars):
         ''' Function computes the normalized log likelihood
         Uses the chi2 function and computes the normalization
         '''
