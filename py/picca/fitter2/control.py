@@ -104,7 +104,7 @@ class fitter2:
 
         for d in self.dic_init['data sets']['data']:
             # if computing forecast, do not add randomness
-            if self.forecast_mc:
+            if forecast:
                 d.da = d.fiducial_model
             else:
                 g = sp.random.randn(len(d.da))
