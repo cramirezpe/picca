@@ -1,6 +1,8 @@
 
 prior_dic = {}
 
+sampler_prior_dic = {}
+
 def gaussian(pars, prior_pars=None, name=None):
     ''' Gaussian prior that returns a chi2 '''
     mu = prior_pars[0]

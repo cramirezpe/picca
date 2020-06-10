@@ -202,6 +202,7 @@ def parse_data(filename,zeff,fiducial):
                 print("WARNING: prior on {} will be overwritten".format(item))
             value = value.split()
             priors.prior_dic[item] = partial(getattr(priors, value[0]), prior_pars=np.array(value[1:]).astype(float), name=item)
+            priors.sampler_prior_dic[item] = partial(getattr(priors, value[0] + '_norm'), prior_pars=np.array(value[1:]).astype(float), name=item)
 
     return dic_init
 
